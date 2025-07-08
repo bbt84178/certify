@@ -110,16 +110,80 @@ app.use('/api/', limiter);
 app.use('/api/auth/', strictLimiter);
 app.use('/api/upload/', strictLimiter);
 
-// Configuration CORS
+// Replace your existing corsOptions in server.js
 const corsOptions = {
-  origin: process.env.NODE_ENV === 'development' 
-    ? ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173', 'http://localhost:5174']
-    : process.env.FRONTEND_URL?.split(',') || false,
+  origin: function (origin, callback) {
+    // Log the origin for debugging
+    console.log('🌐 CORS Check - Origin:', origin);
+    
+    if (process.env.NODE_ENV === 'development') {
+      // In development, allow all localhost origins
+      if (!origin || origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+        console.log('✅ CORS Allowed - Development mode');
+        return callback(null, true);
+      }
+    }
+    
+    // Production origins
+    const allowedOrigins = process.env.FRONTEND_URL?.split(',').map(url => url.trim()) || [];
+    if (allowedOrigins.includes(origin)) {
+      console.log('✅ CORS Allowed - Production whitelist');
+      return callback(null, true);
+    }
+    
+    console.log('❌ CORS Blocked - Origin not allowed:', origin);
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Wallet-Address'],
-  maxAge: 86400 // 24 hours
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Wallet-Address',
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+    'Access-Control-Request-Method',
+    'Access-Control-Request-Headers'
+  ],
+  exposedHeaders: ['X-Total-Count', 'X-Rate-Limit-Remaining'],
+  maxAge: 86400,
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 };
+
+// Apply CORS
+app.use(cors(corsOptions));
+
+// Add explicit preflight handler for upload endpoint
+app.options('/api/ipfs/upload', (req, res) => {
+  console.log('🔄 Preflight request for /api/ipfs/upload');
+  res.header('Access-Control-Allow-Origin', req.headers.origin);
+  res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Wallet-Address');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.status(204).send();
+});
+
+// Handle CORS errors
+app.use((err, req, res, next) => {
+  if (err.message === 'Not allowed by CORS') {
+    logger.error('CORS Error:', {
+      origin: req.headers.origin,
+      method: req.method,
+      url: req.url,
+      userAgent: req.headers['user-agent']
+    });
+    
+    return res.status(403).json({
+      error: 'CORS policy violation',
+      message: 'Origin not allowed',
+      origin: req.headers.origin,
+      code: 'CORS_ERROR'
+    });
+  }
+  next(err);
+});
 
 // Middleware
 app.use(cors(corsOptions));
