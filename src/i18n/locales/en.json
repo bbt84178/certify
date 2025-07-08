@@ -1,0 +1,68 @@
+{
+  "nav": {
+    "home": "Home",
+    "dashboard": "Dashboard",
+    "verify": "Verify",
+    "gallery": "Gallery",
+    "connect": "Connect Wallet",
+    "disconnect": "Disconnect"
+  },
+  "landing": {
+    "hero": {
+      "title": "Create & Issue Web3 Certificates",
+      "subtitle": "No-code platform for blockchain-verified certifications",
+      "description": "Empower your organization with decentralized certificates. Create, customize, and issue NFT/SBT certificates on Ethereum, BNB Chain, or Solana without writing code.",
+      "getStarted": "Get Started",
+      "learnMore": "Learn More"
+    },
+    "features": {
+      "title": "Why Choose CertifyWeb3?",
+      "noCode": {
+        "title": "No-Code Solution",
+        "description": "Create and deploy certificates without technical knowledge"
+      },
+      "blockchain": {
+        "title": "Blockchain Verified",
+        "description": "Immutable certificates stored on blockchain networks"
+      },
+      "customizable": {
+        "title": "Fully Customizable",
+        "description": "Design certificates that match your brand identity"
+      },
+      "multiChain": {
+        "title": "Multi-Chain Support",
+        "description": "Deploy on Ethereum, BNB Chain, or Solana"
+      }
+    }
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "stats": {
+      "totalCertificates": "Total Certificates",
+      "activeCertificates": "Active Certificates",
+      "totalDownloads": "Total Downloads",
+      "monthlyIssued": "Monthly Issued"
+    },
+    "recentCertificates": "Recent Certificates",
+    "quickActions": "Quick Actions",
+    "createCertificate": "Create Certificate",
+    "editTemplate": "Edit Template",
+    "viewAnalytics": "View Analytics"
+  },
+  "common": {
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "view": "View",
+    "download": "Download",
+    "share": "Share",
+    "copy": "Copy",
+    "copied": "Copied!",
+    "error": "Error",
+    "success": "Success",
+    "warning": "Warning",
+    "info": "Info"
+  }
+}

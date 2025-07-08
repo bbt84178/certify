@@ -1,0 +1,5 @@
+export { default as Canvas } from './Canvas'
+export { default as Toolbar } from './Toolbar'
+export { default as PropertiesPanel } from './PropertiesPanel'
+export { default as LayersPanel } from './LayersPanel'
+export type { CanvasElement } from './Canvas'

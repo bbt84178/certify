@@ -1,0 +1,145 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  walletAddress String   @unique @map("wallet_address")
+  email         String?  @unique
+  nonce         String
+  isVerified    Boolean  @default(false) @map("is_verified")
+  lastLogin     DateTime @default(now()) @map("last_login")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  company Company?
+
+  @@map("users")
+}
+
+model Company {
+  id                String   @id @default(cuid())
+  owner             String   @unique
+  name              String
+  description       String?  @db.Text
+  website           String?
+  email             String?
+  industry          String?
+  country           String?
+  logo              String?  // IPFS hash
+  contractAddress   String?  @map("contract_address")
+  blockchain        String   @default("ethereum")
+  isActive          Boolean  @default(true) @map("is_active")
+  isVerified        Boolean  @default(false) @map("is_verified")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  // Settings
+  allowPublicCertificates Boolean @default(true) @map("allow_public_certificates")
+  requireApproval         Boolean @default(false) @map("require_approval")
+  webhookUrl              String? @map("webhook_url")
+
+  // Stats
+  totalCertificates Int @default(0) @map("total_certificates")
+  totalDownloads    Int @default(0) @map("total_downloads")
+  monthlyIssued     Int @default(0) @map("monthly_issued")
+
+  // Relations
+  user         User          @relation(fields: [owner], references: [walletAddress], onDelete: Cascade)
+  certificates Certificate[]
+  templates    Template[]
+
+  @@map("companies")
+}
+
+model Certificate {
+  id               String   @id @default(cuid())
+  tokenId          Int      @map("token_id")
+  certificateId    String   @unique @map("certificate_id")
+  companyAddress   String   @map("company_address")
+  contractAddress  String   @map("contract_address")
+  recipientAddress String   @map("recipient_address")
+  recipientName    String   @map("recipient_name")
+  courseName       String   @map("course_name")
+  description      String?  @db.Text
+  issueDate        DateTime @map("issue_date")
+  ipfsHash         String   @map("ipfs_hash")
+  pdfHash          String?  @map("pdf_hash")
+  transactionHash  String   @map("transaction_hash")
+  blockNumber      Int      @map("block_number")
+  blockchain       String
+  isPublic         Boolean  @default(false) @map("is_public")
+  isSoulbound      Boolean  @default(true) @map("is_soulbound")
+  isRevoked        Boolean  @default(false) @map("is_revoked")
+  downloadCount    Int      @default(0) @map("download_count")
+  viewCount        Int      @default(0) @map("view_count")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  // Metadata
+  category   String?   @db.VarChar(100)
+  tags       String?   @db.Text // JSON array as string
+  expiryDate DateTime? @map("expiry_date")
+
+  // Template data
+  templateBackground String? @map("template_background") @db.Text
+  templateLogo       String? @map("template_logo")
+  templateSignatures String? @map("template_signatures") @db.Text // JSON array as string
+  templateElements   String? @map("template_elements") @db.Text // JSON object as string
+
+  // Relations
+  company Company @relation(fields: [companyAddress], references: [owner], onDelete: Cascade)
+
+  @@index([companyAddress])
+  @@index([recipientAddress])
+  @@index([contractAddress, tokenId])
+  @@index([isPublic])
+  @@index([blockchain])
+  @@index([certificateId])
+  @@map("certificates")
+}
+
+model Template {
+  id             String   @id @default(cuid())
+  companyAddress String   @map("company_address")
+  name           String
+  description    String?  @db.Text
+  background     String?  @db.Text // IPFS hash or URL
+  logo           String?  // IPFS hash
+  signatures     String?  @db.Text // JSON array as string
+  textElements   String?  @db.Text // JSON object as string
+  isDefault      Boolean  @default(false) @map("is_default")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  company Company @relation(fields: [companyAddress], references: [owner], onDelete: Cascade)
+
+  @@index([companyAddress])
+  @@map("templates")
+}
+
+enum CertificateStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
+enum BlockchainNetwork {
+  ETHEREUM
+  SEPOLIA
+  BSC
+  BSC_TESTNET
+  POLYGON
+  POLYGON_MUMBAI
+}

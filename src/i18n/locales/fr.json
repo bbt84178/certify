@@ -1,0 +1,68 @@
+{
+  "nav": {
+    "home": "Accueil",
+    "dashboard": "Tableau de bord",
+    "verify": "Vérifier",
+    "gallery": "Galerie",
+    "connect": "Connecter Wallet",
+    "disconnect": "Déconnecter"
+  },
+  "landing": {
+    "hero": {
+      "title": "Créez et Émettez des Certificats Web3",
+      "subtitle": "Plateforme no-code pour certifications vérifiées blockchain",
+      "description": "Donnez du pouvoir à votre organisation avec des certificats décentralisés. Créez, personnalisez et émettez des certificats NFT/SBT sur Ethereum, BNB Chain ou Solana sans coder.",
+      "getStarted": "Commencer",
+      "learnMore": "En savoir plus"
+    },
+    "features": {
+      "title": "Pourquoi choisir CertifyWeb3 ?",
+      "noCode": {
+        "title": "Solution No-Code",
+        "description": "Créez et déployez des certificats sans connaissances techniques"
+      },
+      "blockchain": {
+        "title": "Vérifié Blockchain",
+        "description": "Certificats immuables stockés sur les réseaux blockchain"
+      },
+      "customizable": {
+        "title": "Entièrement Personnalisable",
+        "description": "Concevez des certificats qui correspondent à votre identité de marque"
+      },
+      "multiChain": {
+        "title": "Support Multi-Chaînes",
+        "description": "Déployez sur Ethereum, BNB Chain ou Solana"
+      }
+    }
+  },
+  "dashboard": {
+    "title": "Tableau de bord",
+    "stats": {
+      "totalCertificates": "Total Certificats",
+      "activeCertificates": "Certificats Actifs",
+      "totalDownloads": "Total Téléchargements",
+      "monthlyIssued": "Émis ce mois"
+    },
+    "recentCertificates": "Certificats Récents",
+    "quickActions": "Actions Rapides",
+    "createCertificate": "Créer Certificat",
+    "editTemplate": "Modifier Modèle",
+    "viewAnalytics": "Voir Analyses"
+  },
+  "common": {
+    "loading": "Chargement...",
+    "save": "Sauvegarder",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "view": "Voir",
+    "download": "Télécharger",
+    "share": "Partager",
+    "copy": "Copier",
+    "copied": "Copié !",
+    "error": "Erreur",
+    "success": "Succès",
+    "warning": "Attention",
+    "info": "Info"
+  }
+}
