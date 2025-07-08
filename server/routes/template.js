@@ -1,8 +1,7 @@
 // server/routes/template.js
 import express from 'express';
-import { PrismaClient } from '@prisma/client';
-
-const router = express.Router();
+import pkg from '@prisma/client';
+const { PrismaClient } = pkg;st router = express.Router();
 const prisma = new PrismaClient();
 
 // GET /api/templates - Récupérer tous les templates de l'entreprise
