@@ -1,7 +1,7 @@
 import express from 'express';
 import { ethers } from 'ethers';
 import { PrismaClient } from '@prisma/client';
-import { authenticateWeb3Token } from '../middleware/auth.js';
+//import { authenticateWeb3Token } from '../middleware/auth.js';
 
 const router = express.Router();
 const prisma = new PrismaClient();
