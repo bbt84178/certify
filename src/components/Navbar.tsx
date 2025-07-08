@@ -4,9 +4,10 @@ import { motion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
 import { useAccount, useConnect, useDisconnect } from 'wagmi'
 import { MetaMaskConnector } from 'wagmi/connectors/metaMask'
-import { Shield, Globe, Menu, X } from 'lucide-react'
-import { useAuthStore } from '../store/useAuthStore'
+import { Shield, Globe, Menu, X, Download } from 'lucide-react'
+import { useAuth } from '../hooks/useAuth'
 import LanguageSelector from './LanguageSelector'
+import toast from 'react-hot-toast'
 
 const Navbar: React.FC = () => {
   const { t } = useTranslation()
@@ -16,25 +17,30 @@ const Navbar: React.FC = () => {
     connector: new MetaMaskConnector(),
   })
   const { disconnect } = useDisconnect()
-  const { user, setUser, setConnected, logout } = useAuthStore()
+  const { user, isAuthenticating, logout } = useAuth()
   const [isMenuOpen, setIsMenuOpen] = React.useState(false)
 
-  React.useEffect(() => {
-    if (isConnected && address) {
-      setUser({ address, isVerified: false })
-      setConnected(true)
-    } else {
-      logout()
-    }
-  }, [isConnected, address, setUser, setConnected, logout])
+  const handleConnect = async () => {
+    try {
+      // Check if MetaMask is installed
+      if (typeof window.ethereum === 'undefined') {
+        toast.error('MetaMask n\'est pas installé. Veuillez l\'installer pour continuer.')
+        // Open MetaMask download page
+        window.open('https://metamask.io/download/', '_blank')
+        return
+      }
 
-  const handleConnect = () => {
-    connect()
+      await connect()
+    } catch (error: any) {
+      console.error('Connection error:', error)
+      toast.error('Erreur lors de la connexion au wallet')
+    }
   }
 
   const handleDisconnect = () => {
     disconnect()
     logout()
+    toast.success('Wallet déconnecté')
   }
 
   const navItems = [
@@ -43,7 +49,7 @@ const Navbar: React.FC = () => {
     { path: '/gallery', label: t('nav.gallery') },
   ]
 
-  if (isConnected) {
+  if (isConnected && user) {
     navItems.push({ path: '/dashboard', label: t('nav.dashboard') })
   }
 
@@ -86,7 +92,15 @@ const Navbar: React.FC = () => {
           <div className="hidden md:flex items-center space-x-4">
             <LanguageSelector />
             
-            {isConnected ? (
+            {/* MetaMask not installed warning */}
+            {typeof window.ethereum === 'undefined' && (
+              <div className="flex items-center space-x-2 bg-orange-50 text-orange-700 px-3 py-1 rounded-full text-sm">
+                <Download className="h-4 w-4" />
+                <span>MetaMask requis</span>
+              </div>
+            )}
+            
+            {isConnected && user ? (
               <div className="flex items-center space-x-3">
                 <div className="text-sm text-gray-600">
                   {address?.slice(0, 6)}...{address?.slice(-4)}
@@ -101,9 +115,17 @@ const Navbar: React.FC = () => {
             ) : (
               <button
                 onClick={handleConnect}
-                className="btn-primary"
+                disabled={isAuthenticating}
+                className="btn-primary flex items-center space-x-2"
               >
-                {t('nav.connect')}
+                {isAuthenticating ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Connexion...</span>
+                  </>
+                ) : (
+                  <span>{t('nav.connect')}</span>
+                )}
               </button>
             )}
           </div>
@@ -146,7 +168,18 @@ const Navbar: React.FC = () => {
               <div className="flex items-center justify-between pt-4 border-t border-gray-200">
                 <LanguageSelector />
                 
-                {isConnected ? (
+                {/* MetaMask warning for mobile */}
+                {typeof window.ethereum === 'undefined' && (
+                  <button
+                    onClick={() => window.open('https://metamask.io/download/', '_blank')}
+                    className="flex items-center space-x-2 bg-orange-50 text-orange-700 px-3 py-2 rounded-lg text-sm"
+                  >
+                    <Download className="h-4 w-4" />
+                    <span>Installer MetaMask</span>
+                  </button>
+                )}
+                
+                {isConnected && user ? (
                   <div className="flex flex-col space-y-2">
                     <div className="text-sm text-gray-600">
                       {address?.slice(0, 6)}...{address?.slice(-4)}
@@ -161,9 +194,17 @@ const Navbar: React.FC = () => {
                 ) : (
                   <button
                     onClick={handleConnect}
-                    className="btn-primary"
+                    disabled={isAuthenticating}
+                    className="btn-primary flex items-center space-x-2"
                   >
-                    {t('nav.connect')}
+                    {isAuthenticating ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        <span>Connexion...</span>
+                      </>
+                    ) : (
+                      <span>{t('nav.connect')}</span>
+                    )}
                   </button>
                 )}
               </div>

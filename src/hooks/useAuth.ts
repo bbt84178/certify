@@ -26,8 +26,8 @@ export const useAuth = () => {
       const token = localStorage.getItem('auth_token')
       if (token) {
         try {
-          const response = await authAPI.getMe()
-          setUser(response.data)
+          const response = await authAPI.getProfile()
+          setUser(response.data.user)
           setConnected(true)
           return
         } catch (error) {
@@ -38,18 +38,17 @@ export const useAuth = () => {
 
       // Get nonce
       const nonceResponse = await authAPI.getNonce(walletAddress)
-      const { nonce } = nonceResponse.data
+      const { nonce, message } = nonceResponse.data
 
       // Sign message
-      const message = `Sign this message to authenticate with CertifyWeb3. Nonce: ${nonce}`
       const signature = await signMessageAsync({ message })
 
       // Verify signature
-      const verifyResponse = await authAPI.verify(walletAddress, signature)
-      const { token, user: userData } = verifyResponse.data
+      const verifyResponse = await authAPI.verify(walletAddress, signature, message)
+      const { accessToken, user: userData } = verifyResponse.data
 
       // Store token and user data
-      localStorage.setItem('auth_token', token)
+      localStorage.setItem('auth_token', accessToken)
       setUser(userData)
       setConnected(true)
       

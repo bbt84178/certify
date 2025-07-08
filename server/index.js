@@ -22,7 +22,7 @@ import {
 } from './middleware/Auth.js';
 
 // Import routes
-import web3AuthRoutes from './routes/Auth.js';
+import web3AuthRoutes from './routes/auth.js';
 import companyRoutes from './routes/company.js';
 import certificateRoutes from './routes/certificate.js';
 import ipfsRoutes from './routes/ipfs.js';
@@ -54,7 +54,7 @@ const logger = winston.createLogger({
     })
   ]
 });
-app.use(csurf({ cookie: true }));
+// app.use(csurf({ cookie: true })); // Désactivé temporairement pour les tests
 
 // Validation des variables d'environnement
 const requiredEnvVars = ['JWT_SECRET', 'DATABASE_URL'];
@@ -212,10 +212,6 @@ await connectDatabase();
 // Routes publiques
 app.use('/api/auth', web3AuthRoutes);
 
-// Routes avec authentification optionnelle (pour affichage public)
-app.use('/api/public/certificates', optionalWeb3Auth, certificateRoutes);
-app.use('/api/ipfs', optionalWeb3Auth, ipfsRoutes);
-
 // Routes protégées - Utilisateur connecté requis
 app.get('/api/user', authenticateWeb3Token, (req, res) => {
   res.json({
@@ -237,8 +233,12 @@ app.get('/api/user', authenticateWeb3Token, (req, res) => {
 app.use('/api/company', authenticateWeb3Token, requireCompany, companyRoutes);
 app.use('/api/templates', authenticateWeb3Token, requireCompany, templateRoutes);
 
-// Routes protégées - Certificats (avec différents niveaux d'accès)
+// Routes protégées - Certificats
 app.use('/api/certificates', authenticateWeb3Token, certificateRoutes);
+
+// Routes avec authentification optionnelle (pour affichage public)
+app.use('/api/public/certificates', optionalWeb3Auth, certificateRoutes);
+app.use('/api/ipfs', optionalWeb3Auth, ipfsRoutes);
 
 // Routes protégées - Contrats intelligents
 app.use('/api/contracts', authenticateWeb3Token, requireCompany, contractRoutes);

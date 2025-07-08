@@ -39,12 +39,16 @@ api.interceptors.response.use(
 // Auth API
 export const authAPI = {
   getNonce: (walletAddress: string) =>
-    api.post('/auth/nonce', { walletAddress }),
+    api.get(`/auth/nonce/${walletAddress}`),
   
-  verify: (walletAddress: string, signature: string) =>
-    api.post('/auth/verify', { walletAddress, signature }),
+  verify: (walletAddress: string, signature: string, message: string) =>
+    api.post('/auth/verify', { walletAddress, signature, message }),
   
-  getMe: () => api.get('/auth/me'),
+  getProfile: () => api.get('/auth/profile'),
+  
+  refreshToken: () => api.post('/auth/refresh'),
+  
+  logout: () => api.post('/auth/logout'),
 }
 
 // Company API
@@ -63,25 +67,25 @@ export const companyAPI = {
 
 // Certificate API
 export const certificateAPI = {
-  create: (data: any) => api.post('/certificate', data),
+  create: (data: any) => api.post('/certificates', data),
   
   getCompanyCertificates: (params: any = {}) =>
-    api.get('/certificate/company', { params }),
+    api.get('/certificates/company', { params }),
   
   getById: (certificateId: string) =>
-    api.get(`/certificate/${certificateId}`),
+    api.get(`/certificates/${certificateId}`),
   
   getByRecipient: (address: string) =>
-    api.get(`/certificate/recipient/${address}`),
+    api.get(`/certificates/recipient/${address}`),
   
   getPublicGallery: (params: any = {}) =>
-    api.get('/certificate/public/gallery', { params }),
+    api.get('/certificates/public/gallery', { params }),
   
   toggleVisibility: (certificateId: string) =>
-    api.put(`/certificate/${certificateId}/visibility`),
+    api.put(`/certificates/${certificateId}/visibility`),
   
   incrementDownload: (certificateId: string) =>
-    api.post(`/certificate/${certificateId}/download`),
+    api.post(`/certificates/${certificateId}/download`),
 }
 
 // IPFS API
@@ -104,16 +108,16 @@ export const ipfsAPI = {
 // Contract API
 export const contractAPI = {
   deploy: (companyName: string, description: string, symbol: string, blockchain: string) =>
-    api.post('/contract/deploy', { companyName, description, symbol, blockchain }),
+    api.post('/contracts/deploy', { companyName, description, symbol, blockchain }),
   
   issueCertificate: (data: any) =>
-    api.post('/contract/issue-certificate', data),
+    api.post('/contracts/issue-certificate', data),
   
   getCertificate: (contractAddress: string, tokenId: string) =>
-    api.get(`/contract/certificate/${contractAddress}/${tokenId}`),
+    api.get(`/contracts/certificate/${contractAddress}/${tokenId}`),
   
   getContractInfo: (contractAddress: string) =>
-    api.get(`/contract/info/${contractAddress}`),
+    api.get(`/contracts/info/${contractAddress}`),
 }
 
 // Health check

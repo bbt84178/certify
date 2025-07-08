@@ -1,4 +1,4 @@
-// middleware/web3Auth.js
+// middleware/Auth.js
 import jwt from 'jsonwebtoken';
 import { ethers } from 'ethers';
 import { PrismaClient } from '@prisma/client';

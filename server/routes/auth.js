@@ -1,9 +1,9 @@
-// routes/web3Auth.js
+// routes/auth.js
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import { ethers } from 'ethers';
 import { PrismaClient } from '@prisma/client';
-import { authenticateWeb3Token, verifySignature } from '../middleware/Auth.js';
+import { authenticateWeb3Token } from '../middleware/Auth.js';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -60,9 +60,11 @@ router.get('/nonce/:walletAddress', async (req, res) => {
       }
     });
 
+    const message = `Connectez-vous à CertifyWeb3 avec votre wallet.\n\nNonce: ${nonce}\nTimestamp: ${new Date().toISOString()}`;
+
     res.json({
       nonce,
-      message: `Connectez-vous à CertifiChain avec votre wallet.\n\nNonce: ${nonce}\nTimestamp: ${new Date().toISOString()}`
+      message
     });
 
   } catch (error) {
