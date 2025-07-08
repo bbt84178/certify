@@ -1,7 +1,6 @@
 import express from 'express';
 import { Web3Storage } from 'web3.storage';
 import multer from 'multer';
-import { authenticateWeb3Token } from '../middleware/auth.js';
 
 const router = express.Router();
 
