@@ -36,6 +36,8 @@ router.get('/nonce/:walletAddress', async (req, res) => {
   try {
     const { walletAddress } = req.params;
 
+    console.log('🔍 Nonce request for:', walletAddress);
+
     // Valider le format de l'adresse
     if (!ethers.isAddress(walletAddress)) {
       return res.status(400).json({ 
@@ -62,13 +64,15 @@ router.get('/nonce/:walletAddress', async (req, res) => {
 
     const message = `Connectez-vous à CertifyWeb3 avec votre wallet.\n\nNonce: ${nonce}\nTimestamp: ${new Date().toISOString()}`;
 
+    console.log('✅ Nonce generated:', { walletAddress, nonce });
+
     res.json({
       nonce,
       message
     });
 
   } catch (error) {
-    console.error('Erreur lors de la génération du nonce:', error);
+    console.error('❌ Erreur lors de la génération du nonce:', error);
     res.status(500).json({ 
       error: 'Erreur serveur lors de la génération du nonce' 
     });
@@ -80,6 +84,8 @@ router.get('/nonce/:walletAddress', async (req, res) => {
 router.post('/verify', async (req, res) => {
   try {
     const { walletAddress, signature, message } = req.body;
+
+    console.log('🔐 Verify request:', { walletAddress, hasSignature: !!signature, hasMessage: !!message });
 
     if (!walletAddress || !signature || !message) {
       return res.status(400).json({ 
@@ -126,6 +132,7 @@ router.post('/verify', async (req, res) => {
         });
       }
     } catch (signatureError) {
+      console.error('❌ Signature verification error:', signatureError);
       return res.status(401).json({ 
         error: 'Erreur lors de la vérification de la signature' 
       });
@@ -147,6 +154,8 @@ router.post('/verify', async (req, res) => {
     // Générer le token JWT
     const accessToken = generateAccessToken(walletAddress.toLowerCase());
 
+    console.log('✅ Authentication successful:', { walletAddress, hasCompany: !!updatedUser.company });
+
     res.json({
       message: 'Connexion réussie',
       user: {
@@ -161,7 +170,7 @@ router.post('/verify', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Erreur lors de la vérification:', error);
+    console.error('❌ Erreur lors de la vérification:', error);
     res.status(500).json({ 
       error: 'Erreur serveur lors de la vérification' 
     });
@@ -187,7 +196,7 @@ router.post('/refresh', authenticateWeb3Token, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Erreur lors du rafraîchissement:', error);
+    console.error('❌ Erreur lors du rafraîchissement:', error);
     res.status(500).json({ 
       error: 'Erreur serveur lors du rafraîchissement' 
     });
@@ -201,16 +210,15 @@ router.get('/profile', authenticateWeb3Token, async (req, res) => {
     const user = await prisma.user.findUnique({
       where: { walletAddress: req.user.walletAddress },
       include: {
-        company: {
-          include: {
-            certificates: {
-              take: 5,
-              orderBy: { createdAt: 'desc' }
-            }
-          }
-        }
+        company: true
       }
     });
+
+    if (!user) {
+      return res.status(404).json({ 
+        error: 'Utilisateur non trouvé' 
+      });
+    }
 
     res.json({
       user: {
@@ -225,7 +233,7 @@ router.get('/profile', authenticateWeb3Token, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Erreur lors de la récupération du profil:', error);
+    console.error('❌ Erreur lors de la récupération du profil:', error);
     res.status(500).json({ 
       error: 'Erreur serveur lors de la récupération du profil' 
     });
@@ -283,7 +291,7 @@ router.put('/profile', authenticateWeb3Token, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Erreur lors de la mise à jour du profil:', error);
+    console.error('❌ Erreur lors de la mise à jour du profil:', error);
     res.status(500).json({ 
       error: 'Erreur serveur lors de la mise à jour du profil' 
     });
@@ -305,7 +313,7 @@ router.post('/logout', authenticateWeb3Token, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Erreur lors de la déconnexion:', error);
+    console.error('❌ Erreur lors de la déconnexion:', error);
     res.status(500).json({ 
       error: 'Erreur serveur lors de la déconnexion' 
     });

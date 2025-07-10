@@ -9,14 +9,19 @@ const storage = multer.memoryStorage();
 const upload = multer({ 
   storage,
   limits: {
-    fileSize: 100 * 1024 * 1024 // 10MB limit
+    fileSize: 50 * 1024 * 1024 // 50MB limit
   },
   fileFilter: (req, file, cb) => {
-    // Allow images and PDFs
-    if (file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf') {
+    // Allow images, PDFs, and JSON files
+    const allowedTypes = [
+      'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
+      'application/pdf', 'application/json'
+    ];
+    
+    if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Only images and PDFs are allowed'), false);
+      cb(new Error('Only images, PDFs, and JSON files are allowed'), false);
     }
   }
 });
@@ -31,8 +36,16 @@ const getWeb3StorageClient = () => {
 };
 
 // Upload file to IPFS
-router.post('/upload', authenticateWeb3Token, upload.single('file'), async (req, res) => {
+router.post('/upload', upload.single('file'), async (req, res) => {
   try {
+    console.log('📁 IPFS upload request:', {
+      hasFile: !!req.file,
+      filename: req.file?.originalname,
+      size: req.file?.size,
+      mimetype: req.file?.mimetype,
+      user: req.user?.walletAddress
+    });
+
     if (!req.file) {
       return res.status(400).json({ error: 'No file provided' });
     }
@@ -50,24 +63,30 @@ router.post('/upload', authenticateWeb3Token, upload.single('file'), async (req,
       maxRetries: 3
     });
     
+    const ipfsUrl = `https://${cid}.ipfs.w3s.link/${req.file.originalname}`;
+    
+    console.log('✅ IPFS upload successful:', { cid, url: ipfsUrl });
+    
     res.json({
       success: true,
       cid: cid,
-      url: `https://${cid}.ipfs.w3s.link/${req.file.originalname}`,
+      url: ipfsUrl,
       filename: req.file.originalname,
       size: req.file.size,
       mimetype: req.file.mimetype
     });
   } catch (error) {
-    console.error('IPFS upload error:', error);
+    console.error('❌ IPFS upload error:', error);
     res.status(500).json({ error: 'Failed to upload to IPFS' });
   }
 });
 
 // Upload JSON metadata to IPFS
-router.post('/upload-json', authenticateWeb3Token, async (req, res) => {
+router.post('/upload-json', async (req, res) => {
   try {
     const { metadata, filename } = req.body;
+    
+    console.log('📄 IPFS JSON upload:', { filename, hasMetadata: !!metadata });
     
     if (!metadata) {
       return res.status(400).json({ error: 'No metadata provided' });
@@ -87,22 +106,28 @@ router.post('/upload-json', authenticateWeb3Token, async (req, res) => {
       maxRetries: 3
     });
     
+    const ipfsUrl = `https://${cid}.ipfs.w3s.link/${filename || 'metadata.json'}`;
+    
+    console.log('✅ IPFS JSON upload successful:', { cid, url: ipfsUrl });
+    
     res.json({
       success: true,
       cid: cid,
-      url: `https://${cid}.ipfs.w3s.link/${filename || 'metadata.json'}`,
+      url: ipfsUrl,
       filename: filename || 'metadata.json'
     });
   } catch (error) {
-    console.error('IPFS JSON upload error:', error);
+    console.error('❌ IPFS JSON upload error:', error);
     res.status(500).json({ error: 'Failed to upload JSON to IPFS' });
   }
 });
 
 // Upload certificate PDF to IPFS
-router.post('/upload-certificate', authenticateWeb3Token, async (req, res) => {
+router.post('/upload-certificate', async (req, res) => {
   try {
     const { pdfData, certificateId, recipientName } = req.body;
+    
+    console.log('📜 IPFS certificate upload:', { certificateId, recipientName });
     
     if (!pdfData) {
       return res.status(400).json({ error: 'No PDF data provided' });
@@ -119,11 +144,20 @@ router.post('/upload-certificate', authenticateWeb3Token, async (req, res) => {
       type: 'application/pdf'
     });
     
+    // Upload PDF
+    const pdfCid = await client.put([file], {
+      name: filename,
+      maxRetries: 3
+    });
+    
+    const pdfUrl = `https://${pdfCid}.ipfs.w3s.link/${filename}`;
+    
     // Create metadata
     const metadata = {
       name: `Certificate for ${recipientName}`,
       description: `Digital certificate issued to ${recipientName}`,
-      image: `https://${await client.put([file])}.ipfs.w3s.link/${filename}`,
+      image: pdfUrl,
+      external_url: pdfUrl,
       attributes: [
         {
           trait_type: "Certificate ID",
@@ -150,22 +184,20 @@ router.post('/upload-certificate', authenticateWeb3Token, async (req, res) => {
       maxRetries: 3
     });
     
-    // Upload PDF
-    const pdfCid = await client.put([file], {
-      name: filename,
-      maxRetries: 3
-    });
+    const metadataUrl = `https://${metadataCid}.ipfs.w3s.link/metadata.json`;
+    
+    console.log('✅ Certificate upload successful:', { pdfCid, metadataCid });
     
     res.json({
       success: true,
       pdfCid: pdfCid,
       metadataCid: metadataCid,
-      pdfUrl: `https://${pdfCid}.ipfs.w3s.link/${filename}`,
-      metadataUrl: `https://${metadataCid}.ipfs.w3s.link/metadata.json`,
+      pdfUrl: pdfUrl,
+      metadataUrl: metadataUrl,
       filename
     });
   } catch (error) {
-    console.error('Certificate upload error:', error);
+    console.error('❌ Certificate upload error:', error);
     res.status(500).json({ error: 'Failed to upload certificate to IPFS' });
   }
 });
@@ -180,7 +212,7 @@ router.get('/file/:cid/:filename?', async (req, res) => {
     
     res.redirect(url);
   } catch (error) {
-    console.error('IPFS file access error:', error);
+    console.error('❌ IPFS file access error:', error);
     res.status(500).json({ error: 'Failed to access IPFS file' });
   }
 });

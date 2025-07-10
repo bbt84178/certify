@@ -2,6 +2,8 @@ import axios from 'axios'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
 
+console.log('🌐 API Base URL:', API_BASE_URL)
+
 // Create axios instance
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -17,18 +19,36 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
+  
+  console.log('📤 API Request:', {
+    method: config.method?.toUpperCase(),
+    url: config.url,
+    hasAuth: !!token,
+    data: config.data ? 'Has data' : 'No data'
+  })
+  
   return config
 })
 
 // Handle auth errors and log responses
 api.interceptors.response.use(
   (response) => {
-    console.log('API Response:', response.config.url, response.status, response.data)
+    console.log('📥 API Response:', {
+      url: response.config.url,
+      status: response.status,
+      data: response.data ? 'Has data' : 'No data'
+    })
     return response
   },
   (error) => {
-    console.error('API Error:', error.config?.url, error.response?.status, error.response?.data)
+    console.error('❌ API Error:', {
+      url: error.config?.url,
+      status: error.response?.status,
+      message: error.response?.data?.error || error.message
+    })
+    
     if (error.response?.status === 401) {
+      console.log('🔑 Unauthorized - removing token')
       localStorage.removeItem('auth_token')
       // Don't redirect automatically, let components handle it
     }
@@ -38,13 +58,20 @@ api.interceptors.response.use(
 
 // Auth API
 export const authAPI = {
-  getNonce: (walletAddress: string) =>
-    api.get(`/auth/nonce/${walletAddress}`),
+  getNonce: (walletAddress: string) => {
+    console.log('🔍 Getting nonce for:', walletAddress)
+    return api.get(`/auth/nonce/${walletAddress}`)
+  },
   
-  verify: (walletAddress: string, signature: string, message: string) =>
-    api.post('/auth/verify', { walletAddress, signature, message }),
+  verify: (walletAddress: string, signature: string, message: string) => {
+    console.log('🔐 Verifying signature for:', walletAddress)
+    return api.post('/auth/verify', { walletAddress, signature, message })
+  },
   
-  getProfile: () => api.get('/auth/profile'),
+  getProfile: () => {
+    console.log('👤 Getting user profile')
+    return api.get('/auth/profile')
+  },
   
   refreshToken: () => api.post('/auth/refresh'),
   
@@ -53,16 +80,24 @@ export const authAPI = {
 
 // Company API
 export const companyAPI = {
-  getProfile: () => api.get('/company/profile'),
+  getProfile: () => {
+    console.log('🏢 Getting company profile')
+    return api.get('/company/profile')
+  },
   
-  saveProfile: (data: any) => api.post('/company/profile', data),
+  saveProfile: (data: any) => {
+    console.log('💾 Saving company profile:', data.name)
+    return api.post('/company/profile', data)
+  },
   
-  updateSettings: (settings: any) => api.put('/company/settings', { settings }),
+  updateSettings: (settings: any) => api.put('/company/settings', settings),
   
   getStats: () => api.get('/company/stats'),
   
-  setContract: (contractAddress: string, transactionHash: string) =>
-    api.post('/company/contract', { contractAddress, transactionHash }),
+  setContract: (contractAddress: string, transactionHash: string) => {
+    console.log('🔗 Setting contract address:', contractAddress)
+    return api.post('/company/contract', { contractAddress, transactionHash })
+  },
 }
 
 // Certificate API
@@ -91,6 +126,7 @@ export const certificateAPI = {
 // IPFS API
 export const ipfsAPI = {
   uploadFile: (file: File) => {
+    console.log('📁 Uploading file to IPFS:', file.name, file.size)
     const formData = new FormData()
     formData.append('file', file)
     return api.post('/ipfs/upload', formData, {
@@ -98,11 +134,15 @@ export const ipfsAPI = {
     })
   },
   
-  uploadJSON: (metadata: any, filename?: string) =>
-    api.post('/ipfs/upload-json', { metadata, filename }),
+  uploadJSON: (metadata: any, filename?: string) => {
+    console.log('📄 Uploading JSON to IPFS:', filename)
+    return api.post('/ipfs/upload-json', { metadata, filename })
+  },
   
-  uploadCertificate: (pdfData: string, certificateId: string, recipientName: string) =>
-    api.post('/ipfs/upload-certificate', { pdfData, certificateId, recipientName }),
+  uploadCertificate: (pdfData: string, certificateId: string, recipientName: string) => {
+    console.log('📜 Uploading certificate to IPFS:', certificateId)
+    return api.post('/ipfs/upload-certificate', { pdfData, certificateId, recipientName })
+  },
 }
 
 // Contract API
@@ -122,7 +162,18 @@ export const contractAPI = {
 
 // Health check
 export const healthAPI = {
-  check: () => api.get('/health')
+  check: () => {
+    console.log('🏥 Health check')
+    return api.get('/health')
+  }
+}
+
+// Test API connection
+export const testAPI = {
+  test: () => {
+    console.log('🧪 Testing API connection')
+    return api.get('/test')
+  }
 }
 
 export default api

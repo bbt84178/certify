@@ -10,63 +10,126 @@ export const useAuth = () => {
   const { user, setUser, setConnected, logout } = useAuthStore()
   const [isAuthenticating, setIsAuthenticating] = useState(false)
 
-  useEffect(() => {
-    if (isConnected && address) {
-      authenticateUser(address)
-    } else {
-      logout()
+  // Fonction d'authentification
+  const authenticate = async () => {
+    if (!address || !isConnected) {
+      console.log('❌ No address or not connected')
+      return
     }
-  }, [isConnected, address])
 
-  const authenticateUser = async (walletAddress: string) => {
     try {
       setIsAuthenticating(true)
+      console.log('🔐 Starting authentication for:', address)
       
-      // Check if already authenticated
+      // Vérifier si on a déjà un token valide
       const token = localStorage.getItem('auth_token')
       if (token) {
         try {
+          console.log('🔍 Checking existing token...')
           const response = await authAPI.getProfile()
+          console.log('✅ Token valid, user authenticated:', response.data.user)
           setUser(response.data.user)
           setConnected(true)
-          return
+          return response.data.user
         } catch (error) {
-          // Token invalid, continue with authentication
+          console.log('❌ Token invalid, removing:', error.response?.status)
           localStorage.removeItem('auth_token')
         }
       }
 
-      // Get nonce
-      const nonceResponse = await authAPI.getNonce(walletAddress)
+      // Étape 1: Récupérer le nonce
+      console.log('📝 Getting nonce for:', address)
+      const nonceResponse = await authAPI.getNonce(address)
       const { nonce, message } = nonceResponse.data
+      console.log('✅ Nonce received:', nonce)
 
-      // Sign message
+      // Étape 2: Signer le message
+      console.log('✍️ Signing message...')
       const signature = await signMessageAsync({ message })
+      console.log('✅ Message signed')
 
-      // Verify signature
-      const verifyResponse = await authAPI.verify(walletAddress, signature, message)
+      // Étape 3: Vérifier la signature
+      console.log('🔐 Verifying signature...')
+      const verifyResponse = await authAPI.verify(address, signature, message)
       const { accessToken, user: userData } = verifyResponse.data
+      console.log('✅ Signature verified, user authenticated:', userData)
 
-      // Store token and user data
+      // Étape 4: Stocker le token et les données utilisateur
       localStorage.setItem('auth_token', accessToken)
       setUser(userData)
       setConnected(true)
       
-      toast.success('Successfully authenticated!')
+      toast.success('Authentification réussie!')
+      return userData
+
     } catch (error: any) {
-      console.error('Authentication error:', error)
-      toast.error(error.response?.data?.error || 'Authentication failed')
+      console.error('❌ Authentication error:', error)
+      
+      // Gestion des erreurs spécifiques
+      if (error.code === 4001) {
+        toast.error('Signature refusée par l\'utilisateur')
+      } else if (error.response?.status === 404) {
+        toast.error('Erreur de nonce. Veuillez réessayer.')
+      } else if (error.response?.status === 401) {
+        toast.error('Signature invalide')
+      } else {
+        toast.error(error.response?.data?.error || 'Erreur d\'authentification')
+      }
+      
       logout()
+      return null
     } finally {
       setIsAuthenticating(false)
     }
   }
 
+  // Déconnexion
+  const handleLogout = async () => {
+    try {
+      await authAPI.logout()
+    } catch (error) {
+      console.error('Logout error:', error)
+    } finally {
+      localStorage.removeItem('auth_token')
+      logout()
+      toast.success('Déconnexion réussie')
+    }
+  }
+
+  // Effet pour gérer l'authentification automatique
+  useEffect(() => {
+    if (isConnected && address && !user && !isAuthenticating) {
+      console.log('🔄 Auto-authenticating for connected wallet:', address)
+      authenticate()
+    } else if (!isConnected && user) {
+      console.log('🔄 Wallet disconnected, logging out')
+      handleLogout()
+    }
+  }, [isConnected, address, user, isAuthenticating])
+
+  // Vérifier le token au chargement
+  useEffect(() => {
+    const token = localStorage.getItem('auth_token')
+    if (token && !user && !isAuthenticating) {
+      console.log('🔍 Checking stored token on load...')
+      authAPI.getProfile()
+        .then(response => {
+          console.log('✅ Stored token valid:', response.data.user)
+          setUser(response.data.user)
+          setConnected(true)
+        })
+        .catch(error => {
+          console.log('❌ Stored token invalid:', error.response?.status)
+          localStorage.removeItem('auth_token')
+        })
+    }
+  }, [])
+
   return {
     user,
     isConnected,
     isAuthenticating,
-    authenticateUser,
-    logout
+    authenticate,
+    logout: handleLogout
   }
 }

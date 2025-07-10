@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
 import { useAccount, useConnect, useDisconnect } from 'wagmi'
-import { Shield, Globe, Menu, X, Download, Wallet } from 'lucide-react'
+import { Shield, Globe, Menu, X, Download, Wallet, AlertTriangle } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import LanguageSelector from './LanguageSelector'
 import toast from 'react-hot-toast'
@@ -30,10 +30,20 @@ const Navbar: React.FC = () => {
   const [isConnecting, setIsConnecting] = React.useState(false)
   const [connectionInProgress, setConnectionInProgress] = React.useState(false)
 
+  // Détecter si MetaMask est installé
+  const isMetaMaskInstalled = React.useMemo(() => {
+    if (typeof window === 'undefined') return false
+    return !!(window as any).ethereum?.isMetaMask
+  }, [])
+
+  // Détecter si on est sur mobile
+  const isMobile = React.useMemo(() => {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+  }, [])
+
   // Use the connectors from wagmi config instead of creating new ones
   const getAvailableWallets = React.useCallback((): WalletOption[] => {
     const wallets: WalletOption[] = []
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
     
     // Map wagmi connectors to wallet options
     connectors.forEach((connector) => {
@@ -106,7 +116,7 @@ const Navbar: React.FC = () => {
     }
     
     return wallets
-  }, [connectors])
+  }, [connectors, isMobile])
 
   const availableWallets = getAvailableWallets()
   const hasWallets = availableWallets.some(w => !w.isInstallOption)
@@ -132,8 +142,6 @@ const Navbar: React.FC = () => {
       setIsConnecting(true)
       setConnectionInProgress(true)
       
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-      
       // Sur mobile, essayer d'ouvrir le wallet via deep link si nécessaire
       if (isMobile && wallet.deepLink && typeof window !== 'undefined' && !window.ethereum) {
         const currentUrl = window.location.href
@@ -148,12 +156,6 @@ const Navbar: React.FC = () => {
         if (result) {
           // Attendre que la connexion soit confirmée
           await new Promise(resolve => setTimeout(resolve, 1000))
-          
-          // Authentifier l'utilisateur après la connexion du wallet
-          if (authenticate) {
-            await authenticate()
-          }
-          
           setShowWalletModal(false)
           toast.success(`Connecté avec ${wallet.name}`)
         }
@@ -189,12 +191,6 @@ const Navbar: React.FC = () => {
       if (result) {
         // Attendre que la connexion soit confirmée
         await new Promise(resolve => setTimeout(resolve, 1000))
-        
-        // Authentifier l'utilisateur après la connexion du wallet
-        if (authenticate) {
-          await authenticate()
-        }
-        
         setShowWalletModal(false)
         toast.success(`Connecté avec ${wallet.name}`)
       }
@@ -239,13 +235,6 @@ const Navbar: React.FC = () => {
       toast.error('Erreur lors de la déconnexion')
     }
   }
-
-  // Effet pour gérer l'authentification automatique après connexion
-  React.useEffect(() => {
-    if (isConnected && address && !user && !isAuthenticating && authenticate) {
-      authenticate()
-    }
-  }, [isConnected, address, user, isAuthenticating, authenticate])
 
   // Effet pour gérer les erreurs de connexion
   React.useEffect(() => {
@@ -314,10 +303,10 @@ const Navbar: React.FC = () => {
               <LanguageSelector />
               
               {/* No wallet warning */}
-              {!hasWallets && (
+              {!isMetaMaskInstalled && !isMobile && (
                 <div className="flex items-center space-x-2 bg-orange-50 text-orange-700 px-3 py-1 rounded-full text-sm">
-                  <Download className="h-4 w-4" />
-                  <span>Wallet requis</span>
+                  <AlertTriangle className="h-4 w-4" />
+                  <span>MetaMask requis</span>
                 </div>
               )}
               
@@ -449,6 +438,25 @@ const Navbar: React.FC = () => {
                 <X className="h-5 w-5" />
               </button>
             </div>
+            
+            {/* Warning si MetaMask n'est pas installé */}
+            {!isMetaMaskInstalled && !isMobile && (
+              <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <AlertTriangle className="h-5 w-5 text-orange-600" />
+                  <div>
+                    <p className="text-sm font-medium text-orange-800">MetaMask non détecté</p>
+                    <p className="text-sm text-orange-700">Installez MetaMask pour une meilleure expérience</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => window.open('https://metamask.io/download/', '_blank')}
+                  className="mt-2 text-sm text-orange-600 hover:text-orange-700 underline"
+                >
+                  Installer MetaMask
+                </button>
+              </div>
+            )}
             
             <div className="space-y-3">
               {availableWallets.map((wallet, index) => (

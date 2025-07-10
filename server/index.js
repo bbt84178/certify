@@ -10,7 +10,6 @@ import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import compression from 'compression';
 import winston from 'winston';
-import csurf from 'csurf';
 
 // Import middleware Web3
 import { 
@@ -54,7 +53,6 @@ const logger = winston.createLogger({
     })
   ]
 });
-// app.use(csurf({ cookie: true })); // Désactivé temporairement pour les tests
 
 // Validation des variables d'environnement
 const requiredEnvVars = ['JWT_SECRET', 'DATABASE_URL'];
@@ -71,15 +69,8 @@ if (!process.env.WEB3_STORAGE_TOKEN) {
 
 // Enhanced security middleware
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "https://api.web3.storage"]
-    }
-  }
+  contentSecurityPolicy: false, // Désactivé pour le développement
+  crossOriginEmbedderPolicy: false
 }));
 
 // Compression middleware
@@ -88,7 +79,7 @@ app.use(compression());
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: 1000, // Augmenté pour le développement
   message: {
     error: 'Trop de requêtes, veuillez réessayer plus tard.',
     code: 'RATE_LIMIT_EXCEEDED'
@@ -99,7 +90,7 @@ const limiter = rateLimit({
 
 const strictLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5, // More restrictive for sensitive operations
+  max: 50, // Augmenté pour le développement
   message: {
     error: 'Trop de tentatives, veuillez réessayer plus tard.',
     code: 'RATE_LIMIT_EXCEEDED'
@@ -107,19 +98,13 @@ const strictLimiter = rateLimit({
 });
 
 app.use('/api/', limiter);
-app.use('/api/auth/', strictLimiter);
-app.use('/api/upload/', strictLimiter);
 
-// Replace your existing corsOptions in server.js
+// CORS Configuration - Plus permissive pour le développement
 const corsOptions = {
   origin: function (origin, callback) {
-    // Log the origin for debugging
-    console.log('🌐 CORS Check - Origin:', origin);
-    
+    // En développement, autoriser toutes les origines localhost
     if (process.env.NODE_ENV === 'development') {
-      // In development, allow all localhost origins
       if (!origin || origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
-        console.log('✅ CORS Allowed - Development mode');
         return callback(null, true);
       }
     }
@@ -127,11 +112,14 @@ const corsOptions = {
     // Production origins
     const allowedOrigins = process.env.FRONTEND_URL?.split(',').map(url => url.trim()) || [];
     if (allowedOrigins.includes(origin)) {
-      console.log('✅ CORS Allowed - Production whitelist');
       return callback(null, true);
     }
     
-    console.log('❌ CORS Blocked - Origin not allowed:', origin);
+    // Autoriser les requêtes sans origin (Postman, etc.)
+    if (!origin) {
+      return callback(null, true);
+    }
+    
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
@@ -155,52 +143,21 @@ const corsOptions = {
 // Apply CORS
 app.use(cors(corsOptions));
 
-// Add explicit preflight handler for upload endpoint
-app.options('/api/ipfs/upload', (req, res) => {
-  console.log('🔄 Preflight request for /api/ipfs/upload');
-  res.header('Access-Control-Allow-Origin', req.headers.origin);
-  res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Wallet-Address');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.status(204).send();
-});
-
-// Handle CORS errors
-app.use((err, req, res, next) => {
-  if (err.message === 'Not allowed by CORS') {
-    logger.error('CORS Error:', {
-      origin: req.headers.origin,
-      method: req.method,
-      url: req.url,
-      userAgent: req.headers['user-agent']
-    });
-    
-    return res.status(403).json({
-      error: 'CORS policy violation',
-      message: 'Origin not allowed',
-      origin: req.headers.origin,
-      code: 'CORS_ERROR'
-    });
-  }
-  next(err);
-});
-
-// Middleware
-app.use(cors(corsOptions));
-app.use(express.json({ limit: '10mb' })); // Reduced from 50mb
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Middleware de base
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Enhanced request logging middleware
 app.use((req, res, next) => {
   const startTime = Date.now();
-  const walletAddress = req.headers['x-wallet-address'] || 'anonymous';
+  const walletAddress = req.headers['x-wallet-address'] || req.headers['authorization'] || 'anonymous';
   
   // Log request
   logger.info('Request started', {
     method: req.method,
     url: req.url,
     userAgent: req.get('User-Agent'),
-    walletAddress: walletAddress.substring(0, 10) + '...',
+    walletAddress: typeof walletAddress === 'string' ? walletAddress.substring(0, 20) + '...' : 'anonymous',
     ip: req.ip
   });
 
@@ -212,7 +169,7 @@ app.use((req, res, next) => {
       url: req.url,
       statusCode: res.statusCode,
       duration: `${duration}ms`,
-      walletAddress: walletAddress.substring(0, 10) + '...'
+      walletAddress: typeof walletAddress === 'string' ? walletAddress.substring(0, 20) + '...' : 'anonymous'
     });
   });
 
@@ -224,9 +181,9 @@ const storage = multer.memoryStorage();
 const upload = multer({ 
   storage,
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
-    files: 1, // Only one file at a time
-    fieldSize: 1024 * 1024 // 1MB field size limit
+    fileSize: 50 * 1024 * 1024, // 50MB limit
+    files: 5, // Jusqu'à 5 fichiers
+    fieldSize: 10 * 1024 * 1024 // 10MB field size limit
   },
   fileFilter: (req, file, cb) => {
     // Enhanced file type validation
@@ -235,6 +192,7 @@ const upload = multer({
       'image/png': ['.png'],
       'image/gif': ['.gif'],
       'image/webp': ['.webp'],
+      'image/svg+xml': ['.svg'],
       'application/pdf': ['.pdf'],
       'application/json': ['.json']
     };
@@ -276,6 +234,15 @@ await connectDatabase();
 // Routes publiques
 app.use('/api/auth', web3AuthRoutes);
 
+// Test route pour vérifier la connexion
+app.get('/api/test', (req, res) => {
+  res.json({ 
+    message: 'API fonctionne correctement',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
 // Routes protégées - Utilisateur connecté requis
 app.get('/api/user', authenticateWeb3Token, (req, res) => {
   res.json({
@@ -294,26 +261,20 @@ app.get('/api/user', authenticateWeb3Token, (req, res) => {
 });
 
 // Routes protégées - Entreprise requise
-app.use('/api/company', authenticateWeb3Token, requireCompany, companyRoutes);
-app.use('/api/templates', authenticateWeb3Token, requireCompany, templateRoutes);
+app.use('/api/company', authenticateWeb3Token, companyRoutes);
+app.use('/api/templates', authenticateWeb3Token, templateRoutes);
 
 // Routes protégées - Certificats
 app.use('/api/certificates', authenticateWeb3Token, certificateRoutes);
 
 // Routes avec authentification optionnelle (pour affichage public)
 app.use('/api/public/certificates', optionalWeb3Auth, certificateRoutes);
-app.use('/api/ipfs', optionalWeb3Auth, ipfsRoutes);
+
+// Routes IPFS avec upload
+app.use('/api/ipfs', authenticateWeb3Token, ipfsRoutes);
 
 // Routes protégées - Contrats intelligents
-app.use('/api/contracts', authenticateWeb3Token, requireCompany, contractRoutes);
-
-// Routes admin - Entreprise vérifiée requise
-app.use('/api/admin/certificates', 
-  authenticateWeb3Token, 
-  requireCompany, 
-  requireVerifiedCompany, 
-  certificateRoutes
-);
+app.use('/api/contracts', authenticateWeb3Token, contractRoutes);
 
 // Enhanced file upload with virus scanning preparation
 app.post('/api/upload', 
@@ -330,20 +291,14 @@ app.post('/api/upload',
         return res.status(400).json({ error: 'Fichier vide' });
       }
 
-      // Optional: Basic file header validation
-      const fileHeader = req.file.buffer.subarray(0, 4);
-      const isValidFile = validateFileHeader(fileHeader, req.file.mimetype);
-      
-      if (!isValidFile) {
-        return res.status(400).json({ error: 'Fichier corrompu ou type invalide' });
-      }
-
       // Generate unique filename
       const timestamp = Date.now();
       const uniqueFilename = `${timestamp}_${req.file.originalname}`;
 
       // Upload to IPFS
       let ipfsHash = null;
+      let ipfsUrl = null;
+      
       if (process.env.WEB3_STORAGE_TOKEN) {
         try {
           const client = new Web3Storage({ token: process.env.WEB3_STORAGE_TOKEN });
@@ -351,6 +306,8 @@ app.post('/api/upload',
             type: req.file.mimetype
           });
           ipfsHash = await client.put([file]);
+          ipfsUrl = `https://${ipfsHash}.ipfs.w3s.link/${uniqueFilename}`;
+          
           logger.info('File uploaded to IPFS', { 
             filename: uniqueFilename, 
             ipfsHash,
@@ -362,28 +319,16 @@ app.post('/api/upload',
         }
       }
 
-      // Save file metadata to database
-      const fileRecord = await prisma.fileUpload.create({
-        data: {
+      res.json({
+        message: 'Fichier uploadé avec succès',
+        file: {
           originalName: req.file.originalname,
           filename: uniqueFilename,
           size: req.file.size,
           mimetype: req.file.mimetype,
           ipfsHash,
-          uploadedBy: req.user.walletAddress,
-          userId: req.user.id
-        }
-      });
-
-      res.json({
-        message: 'Fichier uploadé avec succès',
-        file: {
-          id: fileRecord.id,
-          originalName: req.file.originalname,
-          size: req.file.size,
-          mimetype: req.file.mimetype,
-          ipfsHash,
-          uploadedAt: fileRecord.createdAt
+          ipfsUrl,
+          uploadedAt: new Date().toISOString()
         },
         uploadedBy: req.user.walletAddress
       });
@@ -398,21 +343,6 @@ app.post('/api/upload',
   }
 );
 
-// Helper function for file header validation
-function validateFileHeader(header, mimetype) {
-  const signatures = {
-    'image/jpeg': [0xFF, 0xD8, 0xFF],
-    'image/png': [0x89, 0x50, 0x4E, 0x47],
-    'image/gif': [0x47, 0x49, 0x46, 0x38],
-    'application/pdf': [0x25, 0x50, 0x44, 0x46]
-  };
-
-  const signature = signatures[mimetype];
-  if (!signature) return true; // Allow unknown types for now
-
-  return signature.every((byte, index) => header[index] === byte);
-}
-
 // Enhanced health check
 app.get('/api/health', async (req, res) => {
   try {
@@ -423,15 +353,12 @@ app.get('/api/health', async (req, res) => {
     const dbTime = Date.now() - startTime;
     
     // Get system statistics
-    const [userCount, companyCount, certificateCount, verifiedCompanies] = await Promise.all([
-      prisma.user.count(),
-      prisma.company.count(),
-      prisma.certificate.count(),
-      prisma.company.count({ where: { isVerified: true } })
+    const [userCount, companyCount] = await Promise.all([
+      prisma.user.count().catch(() => 0),
+      prisma.company.count().catch(() => 0)
     ]);
 
     const memoryUsage = process.memoryUsage();
-    const cpuUsage = process.cpuUsage();
 
     res.json({ 
       status: 'OK',
@@ -444,19 +371,13 @@ app.get('/api/health', async (req, res) => {
         responseTime: `${dbTime}ms`,
         statistics: {
           users: userCount,
-          companies: companyCount,
-          certificates: certificateCount,
-          verifiedCompanies
+          companies: companyCount
         }
       },
       system: {
         memory: {
           used: Math.round(memoryUsage.heapUsed / 1024 / 1024) + ' MB',
           total: Math.round(memoryUsage.heapTotal / 1024 / 1024) + ' MB'
-        },
-        cpu: {
-          user: Math.round(cpuUsage.user / 1000) + ' μs',
-          system: Math.round(cpuUsage.system / 1000) + ' μs'
         }
       },
       blockchain: {
@@ -473,78 +394,6 @@ app.get('/api/health', async (req, res) => {
       timestamp: new Date().toISOString(),
       error: 'Database connection failed',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-});
-
-// Enhanced public statistics
-app.get('/api/stats', async (req, res) => {
-  try {
-    const now = new Date();
-    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-    const lastWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-
-    const [
-      totalUsers,
-      totalCompanies,
-      totalCertificates,
-      verifiedCompanies,
-      publicCertificates,
-      monthlyStats,
-      weeklyStats,
-      recentActivity
-    ] = await Promise.all([
-      prisma.user.count(),
-      prisma.company.count(),
-      prisma.certificate.count(),
-      prisma.company.count({ where: { isVerified: true } }),
-      prisma.certificate.count({ where: { isPublic: true } }),
-      prisma.certificate.count({
-        where: { createdAt: { gte: lastMonth } }
-      }),
-      prisma.certificate.count({
-        where: { createdAt: { gte: lastWeek } }
-      }),
-      prisma.certificate.findMany({
-        where: { isPublic: true },
-        take: 5,
-        orderBy: { createdAt: 'desc' },
-        select: {
-          id: true,
-          title: true,
-          createdAt: true,
-          company: {
-            select: { name: true, isVerified: true }
-          }
-        }
-      })
-    ]);
-
-    res.json({
-      overview: {
-        totalUsers,
-        totalCompanies,
-        totalCertificates,
-        verifiedCompanies,
-        publicCertificates
-      },
-      activity: {
-        monthlyIssued: monthlyStats,
-        weeklyIssued: weeklyStats,
-        recent: recentActivity
-      },
-      growth: {
-        verificationRate: totalCompanies > 0 ? (verifiedCompanies / totalCompanies * 100).toFixed(1) : 0,
-        publicRate: totalCertificates > 0 ? (publicCertificates / totalCertificates * 100).toFixed(1) : 0
-      },
-      timestamp: new Date().toISOString()
-    });
-
-  } catch (error) {
-    logger.error('Stats error:', error);
-    res.status(500).json({ 
-      error: 'Erreur lors de la récupération des statistiques',
-      code: 'STATS_ERROR'
     });
   }
 });
@@ -583,7 +432,7 @@ app.use((error, req, res, next) => {
   // Multer errors
   if (error.code === 'LIMIT_FILE_SIZE') {
     return res.status(400).json({ 
-      error: 'Fichier trop volumineux (max 10MB)',
+      error: 'Fichier trop volumineux (max 50MB)',
       code: 'FILE_TOO_LARGE',
       errorId
     });
@@ -591,7 +440,7 @@ app.use((error, req, res, next) => {
 
   if (error.code === 'LIMIT_FILE_COUNT') {
     return res.status(400).json({ 
-      error: 'Trop de fichiers (max 1)',
+      error: 'Trop de fichiers (max 5)',
       code: 'TOO_MANY_FILES',
       errorId
     });
@@ -633,45 +482,6 @@ app.use('*', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
-
-// Enhanced cleanup with more comprehensive data management
-const cleanupOldData = async () => {
-  try {
-    const now = new Date();
-    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-
-    // Clean up unverified users older than 24 hours
-    const cleanedUsers = await prisma.user.updateMany({
-      where: {
-        isVerified: false,
-        createdAt: { lt: oneDayAgo }
-      },
-      data: {
-        nonce: Math.floor(Math.random() * 1000000).toString()
-      }
-    });
-
-    // Clean up temporary files older than 1 week
-    const cleanedFiles = await prisma.fileUpload.deleteMany({
-      where: {
-        isTemporary: true,
-        createdAt: { lt: oneWeekAgo }
-      }
-    });
-
-    logger.info('Periodic cleanup completed', {
-      usersUpdated: cleanedUsers.count,
-      filesDeleted: cleanedFiles.count
-    });
-
-  } catch (error) {
-    logger.error('Cleanup error:', error);
-  }
-};
-
-// Run cleanup every 6 hours
-setInterval(cleanupOldData, 6 * 60 * 60 * 1000);
 
 // Graceful shutdown
 const shutdown = async (signal) => {

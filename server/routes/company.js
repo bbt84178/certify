@@ -1,13 +1,14 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
-//import { authenticateWeb3Token } from '../middleware/Auth.js';
 
 const router = express.Router();
 const prisma = new PrismaClient();
 
 // Get company profile
-router.get('/profile', authenticateWeb3Token, async (req, res) => {
+router.get('/profile', async (req, res) => {
   try {
+    console.log('🏢 Getting company profile for:', req.user.walletAddress);
+    
     const company = await prisma.company.findUnique({
       where: { owner: req.user.walletAddress }
     });
@@ -16,15 +17,16 @@ router.get('/profile', authenticateWeb3Token, async (req, res) => {
       return res.status(404).json({ error: 'Company not found' });
     }
     
+    console.log('✅ Company found:', company.name);
     res.json(company);
   } catch (error) {
-    console.error('Get company error:', error);
+    console.error('❌ Get company error:', error);
     res.status(500).json({ error: 'Failed to get company' });
   }
 });
 
 // Create or update company profile
-router.post('/profile', authenticateWeb3Token, async (req, res) => {
+router.post('/profile', async (req, res) => {
   try {
     const {
       name,
@@ -36,6 +38,8 @@ router.post('/profile', authenticateWeb3Token, async (req, res) => {
       logo,
       blockchain
     } = req.body;
+    
+    console.log('🏢 Saving company profile:', { name, owner: req.user.walletAddress });
     
     if (!name) {
       return res.status(400).json({ error: 'Company name is required' });
@@ -59,9 +63,11 @@ router.post('/profile', authenticateWeb3Token, async (req, res) => {
           industry: industry || existingCompany.industry,
           country: country || existingCompany.country,
           logo: logo || existingCompany.logo,
-          blockchain: blockchain || existingCompany.blockchain
+          blockchain: blockchain || existingCompany.blockchain,
+          updatedAt: new Date()
         }
       });
+      console.log('✅ Company updated:', company.name);
     } else {
       // Create new company
       company = await prisma.company.create({
@@ -74,24 +80,24 @@ router.post('/profile', authenticateWeb3Token, async (req, res) => {
           industry: industry || '',
           country: country || '',
           logo: logo || '',
-          blockchain: blockchain || 'ethereum',
+          blockchain: blockchain || 'sepolia',
           totalCertificates: 0,
-          activeCertificates: 0,
           totalDownloads: 0,
           monthlyIssued: 0
         }
       });
+      console.log('✅ Company created:', company.name);
     }
     
     res.json(company);
   } catch (error) {
-    console.error('Save company error:', error);
+    console.error('❌ Save company error:', error);
     res.status(500).json({ error: 'Failed to save company' });
   }
 });
 
 // Update company settings
-router.put('/settings', authenticateWeb3Token, async (req, res) => {
+router.put('/settings', async (req, res) => {
   try {
     const company = await prisma.company.findUnique({
       where: { owner: req.user.walletAddress }
@@ -101,24 +107,27 @@ router.put('/settings', authenticateWeb3Token, async (req, res) => {
       return res.status(404).json({ error: 'Company not found' });
     }
     
-    const { settings } = req.body;
+    const { allowPublicCertificates, requireApproval, webhookUrl } = req.body;
     
     const updatedCompany = await prisma.company.update({
       where: { owner: req.user.walletAddress },
       data: {
-        settings: JSON.stringify({ ...JSON.parse(company.settings || '{}'), ...settings })
+        allowPublicCertificates: allowPublicCertificates !== undefined ? allowPublicCertificates : company.allowPublicCertificates,
+        requireApproval: requireApproval !== undefined ? requireApproval : company.requireApproval,
+        webhookUrl: webhookUrl !== undefined ? webhookUrl : company.webhookUrl,
+        updatedAt: new Date()
       }
     });
     
     res.json(updatedCompany);
   } catch (error) {
-    console.error('Update settings error:', error);
+    console.error('❌ Update settings error:', error);
     res.status(500).json({ error: 'Failed to update settings' });
   }
 });
 
 // Get company stats
-router.get('/stats', authenticateWeb3Token, async (req, res) => {
+router.get('/stats', async (req, res) => {
   try {
     const company = await prisma.company.findUnique({
       where: { owner: req.user.walletAddress }
@@ -130,22 +139,23 @@ router.get('/stats', authenticateWeb3Token, async (req, res) => {
     
     const stats = {
       totalCertificates: company.totalCertificates,
-      activeCertificates: company.activeCertificates,
       totalDownloads: company.totalDownloads,
       monthlyIssued: company.monthlyIssued
     };
     
     res.json(stats);
   } catch (error) {
-    console.error('Get stats error:', error);
+    console.error('❌ Get stats error:', error);
     res.status(500).json({ error: 'Failed to get stats' });
   }
 });
 
 // Set contract address after deployment
-router.post('/contract', authenticateWeb3Token, async (req, res) => {
+router.post('/contract', async (req, res) => {
   try {
     const { contractAddress, transactionHash } = req.body;
+    
+    console.log('🔗 Setting contract address:', { contractAddress, owner: req.user.walletAddress });
     
     if (!contractAddress) {
       return res.status(400).json({ error: 'Contract address is required' });
@@ -162,9 +172,12 @@ router.post('/contract', authenticateWeb3Token, async (req, res) => {
     const updatedCompany = await prisma.company.update({
       where: { owner: req.user.walletAddress },
       data: {
-        contractAddress: contractAddress.toLowerCase()
+        contractAddress: contractAddress.toLowerCase(),
+        updatedAt: new Date()
       }
     });
+    
+    console.log('✅ Contract address set:', updatedCompany.contractAddress);
     
     res.json({ 
       success: true, 
@@ -172,7 +185,7 @@ router.post('/contract', authenticateWeb3Token, async (req, res) => {
       transactionHash 
     });
   } catch (error) {
-    console.error('Set contract error:', error);
+    console.error('❌ Set contract error:', error);
     res.status(500).json({ error: 'Failed to set contract address' });
   }
 });
