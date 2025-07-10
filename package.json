@@ -52,7 +52,8 @@
     "wagmi": "^1.4.12",
     "web3.storage": "^4.5.5",
     "winston": "^3.17.0",
-    "zustand": "^4.4.7"
+    "zustand": "^4.4.7",
+    "buffer": "^6.0.3"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^4.0.0",
@@ -66,7 +67,6 @@
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.16",
     "bcryptjs": "^2.4.3",
-    "buffer": "^6.0.3",
     "concurrently": "^8.2.2",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
