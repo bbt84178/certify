@@ -21,6 +21,15 @@ export const useAuth = () => {
       setIsAuthenticating(true)
       console.log('🔐 Starting authentication for:', address)
       
+      // Check if backend is available first
+      try {
+        await authAPI.healthCheck()
+      } catch (healthError) {
+        console.error('❌ Backend server not available:', healthError)
+        toast.error('Serveur non disponible. Vérifiez que le backend est démarré.')
+        return null
+      }
+      
       // Vérifier si on a déjà un token valide
       const token = localStorage.getItem('auth_token')
       if (token) {
@@ -68,10 +77,14 @@ export const useAuth = () => {
       // Gestion des erreurs spécifiques
       if (error.code === 4001) {
         toast.error('Signature refusée par l\'utilisateur')
+      } else if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK') {
+        toast.error('Impossible de se connecter au serveur. Vérifiez que le backend est démarré.')
       } else if (error.response?.status === 404) {
         toast.error('Erreur de nonce. Veuillez réessayer.')
       } else if (error.response?.status === 401) {
         toast.error('Signature invalide')
+      } else if (error.response?.status >= 500) {
+        toast.error('Erreur serveur. Veuillez réessayer plus tard.')
       } else {
         toast.error(error.response?.data?.error || 'Erreur d\'authentification')
       }
